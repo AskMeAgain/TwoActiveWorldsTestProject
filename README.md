@@ -1,0 +1,5 @@
+# TwoActiveWorldsTestProject
+
+This project tries to run two HybridRenderer at the same time. It works, but only one HybridRenderer is really rendering to the screen
+
+Look into TestManager.cs and TestSystem.cs. The customBootstrap is empty, to ensure we do everything correctly by hand
