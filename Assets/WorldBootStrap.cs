@@ -8,7 +8,7 @@ class WorldBootStrap : ICustomBootstrap
 {
     public bool Initialize(string defaultWorldName)
     {
-        Debug.Log("Executing World Bootstrap");
+        Debug.Log("No Bootstrap happening");
 
         return true;
     }

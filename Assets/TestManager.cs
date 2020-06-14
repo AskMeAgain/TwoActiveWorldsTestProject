@@ -14,13 +14,25 @@ public class TestManager : MonoBehaviour
     static MethodInfo insertManagerIntoSubsystemListMethod = typeof(ScriptBehaviourUpdateOrder).GetMethod(
         "InsertManagerIntoSubsystemList", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
 
+    private World w1;
+    private World w2;
+
+    private HybridRendererSystem s1;
+    private HybridRendererSystem s2;
+
     void Start()
     {
-        CreateWorld("World 1");
-        CreateWorld("World 2");
+        var tuple1 = CreateWorld("World 1");
+        var tuple2 = CreateWorld("World 2");
+
+        w1 = tuple1.Item1;
+        w2 = tuple2.Item1;
+
+        s1 = tuple1.Item2;
+        s2 = tuple2.Item2;
     }
 
-    private void CreateWorld(string n)
+    private (World, HybridRendererSystem) CreateWorld(string n)
     {
         var world = new World(n);
 
@@ -30,8 +42,44 @@ public class TestManager : MonoBehaviour
 
         DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, list);
 
-        SetStuff(world);
 
+        SetStuff(world);
+        var hybrid = world.GetOrCreateSystem<HybridRendererSystem>();
+
+        return (world, hybrid);
+    }
+
+    public void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            s1.Enabled = false;
+            s2.Enabled = true;
+            Display();
+        }
+
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            s2.Enabled = false;
+            s1.Enabled = true;
+            Display();
+        }
+
+        if (Input.GetKeyDown(KeyCode.U))
+        {
+            s2.Enabled = _switch;
+            s1.Enabled = _switch;
+            _switch = !_switch;
+            Display();
+        }
+    }
+
+    private bool _switch;
+
+    private void Display()
+    {
+        Debug.Log($"HybridRenderer of World 1 is {(s1.Enabled ? "" : "not")} enabled");
+        Debug.Log($"HybridRenderer of World 2 is {(s2.Enabled ? "" : "not")} enabled");
     }
 
     private void SetStuff(World world)

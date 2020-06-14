@@ -7,19 +7,16 @@ using Unity.Transforms;
 using UnityEngine;
 
 [ExecuteAlways]
-public class TestSystem : SystemBase
+public class TestSystem : ComponentSystem
 {
-
     protected override void OnCreate()
     {
-        Debug.Log("World: " + EntityManager.World.Name);
-
         var settings = new GameObjectConversionSettings(EntityManager.World,
             GameObjectConversionUtility.ConversionFlags.AssignName,
             new BlobAssetStore());
 
         var cube = GameObjectConversionUtility.ConvertGameObjectHierarchy(Resources.Load<GameObject>("cube"), settings);
-        EntityManager.SetName(cube, "Base:" + EntityManager.World.Name);
+        EntityManager.SetName(cube, "Prefab:" + EntityManager.World.Name);
 
         var entity2 = EntityManager.Instantiate(cube);
         EntityManager.SetName(entity2, "Real Cube:" + EntityManager.World.Name);
@@ -38,6 +35,9 @@ public class TestSystem : SystemBase
 
     protected override void OnUpdate()
     {
-        Debug.Log("test" + EntityManager.World.Name);
+        Entities.ForEach((ref Translation position) =>
+        {
+            position.Value.y += (float) math.sin(Time.ElapsedTime * 10) * 0.01f;
+        });
     }
 }
