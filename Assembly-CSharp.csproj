@@ -51,11 +51,11 @@
     <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>
   </PropertyGroup>
   <ItemGroup>
-     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
-     <Compile Include="Assets\Scripts\SimpleCameraController.cs" />
+     <Compile Include="Assets\WorldBootStrap.cs" />
      <Compile Include="Assets\TestSystem.cs" />
      <Compile Include="Assets\TestManager.cs" />
-     <Compile Include="Assets\WorldBootStrap.cs" />
+     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
+     <Compile Include="Assets\Scripts\SimpleCameraController.cs" />
  <Reference Include="UnityEngine">
  <HintPath>D:/UnityVersions/2020.2.0a13/Editor/Data/Managed/UnityEngine/UnityEngine.dll</HintPath>
  </Reference>

@@ -41,8 +41,7 @@ public class TestManager : MonoBehaviour
         var list = systems.ToList();
 
         DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, list);
-
-
+        
         SetStuff(world);
         var hybrid = world.GetOrCreateSystem<HybridRendererSystem>();
 
@@ -69,8 +68,16 @@ public class TestManager : MonoBehaviour
         {
             s2.Enabled = _switch;
             s1.Enabled = _switch;
+
             _switch = !_switch;
             Display();
+        }
+
+        if (Input.GetKeyDown(KeyCode.I))
+        {
+            s2.SetStop(_switch);
+            s1.SetStop(!_switch);
+            _switch = !_switch;
         }
     }
 

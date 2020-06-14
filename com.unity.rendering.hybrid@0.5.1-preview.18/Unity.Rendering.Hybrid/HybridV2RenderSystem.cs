@@ -52,6 +52,7 @@ using UnityEngine.Rendering;
 #if UNITY_2020_1_OR_NEWER
 // This API only exists since 2020.1
 using Unity.Rendering.HybridV2;
+
 #endif
 
 namespace Unity.Rendering
@@ -68,7 +69,7 @@ namespace Unity.Rendering
         public bool Valid;
     }
 
-    public struct WorldToLocal_Tag : IComponentData {}
+    public struct WorldToLocal_Tag : IComponentData { }
 
     // Burst currently does not support atomic AND and OR. Use compare-and-exchange based
     // workarounds until it does.
@@ -78,12 +79,12 @@ namespace Unity.Rendering
 
         public static void IndexToQwIndexAndMask(int index, out int qwIndex, out long mask)
         {
-            uint i = (uint)index;
+            uint i = (uint) index;
             uint qw = i / kNumBitsInLong;
             uint shift = i % kNumBitsInLong;
 
-            qwIndex = (int)qw;
-            mask = 1L << (int)shift;
+            qwIndex = (int) qw;
+            mask = 1L << (int) shift;
         }
 
         public static unsafe long AtomicAnd(long* qwords, int index, long value)
@@ -93,16 +94,14 @@ namespace Unity.Rendering
             for (;;)
             {
                 // If the AND wouldn't change any bits, no need to issue the atomic
-                if ((currentValue & value) == currentValue)
-                    return currentValue;
+                if ((currentValue & value) == currentValue) return currentValue;
 
                 long newValue = currentValue & value;
                 long prevValue =
                     System.Threading.Interlocked.CompareExchange(ref qwords[index], newValue, currentValue);
 
                 // If the value was equal to the expected value, we know that our atomic went through
-                if (prevValue == currentValue)
-                    return prevValue;
+                if (prevValue == currentValue) return prevValue;
 
                 currentValue = prevValue;
             }
@@ -115,16 +114,14 @@ namespace Unity.Rendering
             for (;;)
             {
                 // If the OR wouldn't change any bits, no need to issue the atomic
-                if ((currentValue | value) == currentValue)
-                    return currentValue;
+                if ((currentValue | value) == currentValue) return currentValue;
 
                 long newValue = currentValue | value;
                 long prevValue =
                     System.Threading.Interlocked.CompareExchange(ref qwords[index], newValue, currentValue);
 
                 // If the value was equal to the expected value, we know that our atomic went through
-                if (prevValue == currentValue)
-                    return prevValue;
+                if (prevValue == currentValue) return prevValue;
 
                 currentValue = prevValue;
             }
@@ -135,15 +132,14 @@ namespace Unity.Rendering
             float currentValue = floats[index];
             for (;;)
             {
-                if (currentValue <= value)
-                    return currentValue;
+                if (currentValue <= value) return currentValue;
 
                 float newValue = value;
-                float prevValue = System.Threading.Interlocked.CompareExchange(ref floats[index], newValue, currentValue);
+                float prevValue =
+                    System.Threading.Interlocked.CompareExchange(ref floats[index], newValue, currentValue);
 
                 // If the value was equal to the expected value, we know that our atomic went through
-                if (prevValue == currentValue)
-                    return prevValue;
+                if (prevValue == currentValue) return prevValue;
 
                 currentValue = prevValue;
             }
@@ -154,15 +150,14 @@ namespace Unity.Rendering
             float currentValue = floats[index];
             for (;;)
             {
-                if (currentValue >= value)
-                    return currentValue;
+                if (currentValue >= value) return currentValue;
 
                 float newValue = value;
-                float prevValue = System.Threading.Interlocked.CompareExchange(ref floats[index], newValue, currentValue);
+                float prevValue =
+                    System.Threading.Interlocked.CompareExchange(ref floats[index], newValue, currentValue);
 
                 // If the value was equal to the expected value, we know that our atomic went through
-                if (prevValue == currentValue)
-                    return prevValue;
+                if (prevValue == currentValue) return prevValue;
 
                 currentValue = prevValue;
             }
@@ -213,7 +208,7 @@ namespace Unity.Rendering
 
             Debug.Assert(qw < UnreferencedInternalIndices.Length, "Batch index out of bounds");
 
-            AtomicHelpers.AtomicOr((long*)UnreferencedInternalIndices.GetUnsafePtr(), qw, mask);
+            AtomicHelpers.AtomicOr((long*) UnreferencedInternalIndices.GetUnsafePtr(), qw, mask);
         }
     }
 
@@ -257,9 +252,9 @@ namespace Unity.Rendering
         public int PrevLocalToWorldType;
         public int PrevWorldToLocalType;
 
-#if PROFILE_BURST_JOB_INTERNALS
+        #if PROFILE_BURST_JOB_INTERNALS
         public ProfilerMarker ProfileAddUpload;
-#endif
+        #endif
 
         public unsafe void MarkBatchForUpdates(int internalIndex, bool entitiesMoved)
         {
@@ -273,10 +268,9 @@ namespace Unity.Rendering
             // If entities moved, we always update the batch since bounds must be updated.
             // If no entities moved, we only update the batch if it requires motion vector disable.
             if (entitiesMoved || mustDisableMotionVectors)
-                AtomicHelpers.AtomicOr((long*)BatchRequiresUpdates.GetUnsafePtr(), qw, mask);
+                AtomicHelpers.AtomicOr((long*) BatchRequiresUpdates.GetUnsafePtr(), qw, mask);
 
-            if (entitiesMoved)
-                AtomicHelpers.AtomicOr((long*)BatchHadMovingEntities.GetUnsafePtr(), qw, mask);
+            if (entitiesMoved) AtomicHelpers.AtomicOr((long*) BatchHadMovingEntities.GetUnsafePtr(), qw, mask);
         }
 
         unsafe void MarkBatchAsReferenced(int internalIndex)
@@ -288,16 +282,17 @@ namespace Unity.Rendering
             Debug.Assert(qw < UnreferencedInternalIndices.Length, "Batch index out of bounds");
 
             AtomicHelpers.AtomicAnd(
-                (long*)UnreferencedInternalIndices.GetUnsafePtr(),
+                (long*) UnreferencedInternalIndices.GetUnsafePtr(),
                 qw,
                 ~mask);
         }
 
-        public void ProcessChunk(ref HybridChunkInfo chunkInfo, ArchetypeChunk chunk, ChunkWorldRenderBounds chunkBounds)
+        public void ProcessChunk(ref HybridChunkInfo chunkInfo, ArchetypeChunk chunk,
+                                 ChunkWorldRenderBounds chunkBounds)
         {
-#if DEBUG_LOG_CHUNKS
+            #if DEBUG_LOG_CHUNKS
             Debug.Log($"HybridChunkUpdater.ProcessChunk(internalBatchIndex: {chunkInfo.InternalIndex}, valid: {chunkInfo.Valid}, count: {chunk.Count}, chunk: {chunk.GetHashCode()})");
-#endif
+            #endif
 
             if (chunkInfo.Valid)
                 ProcessValidChunk(ref chunkInfo, chunk, chunkBounds.Value, false);
@@ -307,10 +302,9 @@ namespace Unity.Rendering
 
         public unsafe void DeferNewChunk(ref HybridChunkInfo chunkInfo, ArchetypeChunk chunk)
         {
-            if (chunk.Archetype.Prefab || chunk.Archetype.Disabled)
-                return;
+            if (chunk.Archetype.Prefab || chunk.Archetype.Disabled) return;
 
-            int* numNewChunks = (int*)NumNewChunks.GetUnsafePtr();
+            int* numNewChunks = (int*) NumNewChunks.GetUnsafePtr();
             int iPlus1 = System.Threading.Interlocked.Add(ref numNewChunks[0], 1);
             int i = iPlus1 - 1; // C# Interlocked semantics are weird
             Debug.Assert(i < NewChunks.Length, "Out of space in the NewChunks buffer");
@@ -318,10 +312,9 @@ namespace Unity.Rendering
         }
 
         public unsafe void ProcessValidChunk(ref HybridChunkInfo chunkInfo, ArchetypeChunk chunk,
-            MinMaxAABB chunkAABB, bool isNewChunk)
+                                             MinMaxAABB chunkAABB, bool isNewChunk)
         {
-            if (!isNewChunk)
-                MarkBatchAsReferenced(chunkInfo.InternalIndex);
+            if (!isNewChunk) MarkBatchAsReferenced(chunkInfo.InternalIndex);
 
             int internalIndex = chunkInfo.InternalIndex;
             UpdateBatchAABB(internalIndex, chunkAABB);
@@ -331,7 +324,7 @@ namespace Unity.Rendering
             var dstOffsetWorldToLocal = -1;
             var dstOffsetPrevWorldToLocal = -1;
 
-            fixed(ArchetypeChunkComponentTypeDynamic* fixedT0 = &ComponentTypes.t0)
+            fixed (ArchetypeChunkComponentTypeDynamic* fixedT0 = &ComponentTypes.t0)
             {
                 for (int i = chunkInfo.ChunkTypesBegin; i < chunkInfo.ChunkTypesEnd; ++i)
                 {
@@ -339,8 +332,7 @@ namespace Unity.Rendering
                     var type = chunkProperty.ComponentTypeIndex;
                     if (type == WorldToLocalType)
                         dstOffsetWorldToLocal = chunkProperty.GPUDataBegin;
-                    else if (type == PrevWorldToLocalType)
-                        dstOffsetPrevWorldToLocal = chunkProperty.GPUDataBegin;
+                    else if (type == PrevWorldToLocalType) dstOffsetPrevWorldToLocal = chunkProperty.GPUDataBegin;
                 }
 
                 for (int i = chunkInfo.ChunkTypesBegin; i < chunkInfo.ChunkTypesEnd; ++i)
@@ -361,18 +353,18 @@ namespace Unity.Rendering
 
                     if (copyComponentData)
                     {
-#if DEBUG_LOG_PROPERTIES
+                        #if DEBUG_LOG_PROPERTIES
                         Debug.Log($"UpdateChunkProperty(internalBatchIndex: {chunkInfo.InternalIndex}, property: {i}, elementSize: {chunkProperty->ValueSizeBytes}, prevChangeVersion: {chunkProperty->PrevChangeVersion}, componentVersion: {componentVersion})");
-#endif
+                        #endif
 
                         var src = chunk.GetDynamicComponentDataArrayReinterpret<int>(type,
                             chunkProperty.ValueSizeBytes);
 
-#if PROFILE_BURST_JOB_INTERNALS
+                        #if PROFILE_BURST_JOB_INTERNALS
                         ProfileAddUpload.Begin();
-#endif
+                        #endif
 
-                        int sizeBytes = (int)((uint)chunk.Count * (uint)chunkProperty.ValueSizeBytes);
+                        int sizeBytes = (int) ((uint) chunk.Count * (uint) chunkProperty.ValueSizeBytes);
                         var srcPtr = src.GetUnsafeReadOnlyPtr();
                         var dstOffset = chunkProperty.GPUDataBegin;
                         if (isLocalToWorld || isPrevLocalToWorld)
@@ -391,9 +383,9 @@ namespace Unity.Rendering
                                 sizeBytes,
                                 dstOffset);
                         }
-#if PROFILE_BURST_JOB_INTERNALS
+                        #if PROFILE_BURST_JOB_INTERNALS
                         ProfileAddUpload.End();
-#endif
+                        #endif
                     }
                 }
             }
@@ -422,14 +414,13 @@ namespace Unity.Rendering
         private unsafe void CommitBatchAABB()
         {
             bool validThreadLocalAABB = PreviousBatchIndex >= 0;
-            if (!validThreadLocalAABB)
-                return;
+            if (!validThreadLocalAABB) return;
 
             int internalIndex = PreviousBatchIndex;
             var aabb = ThreadLocalAABB;
 
-            int aabbIndex = (int)(((uint)internalIndex) * kFloatsPerAABB);
-            float* aabbFloats = (float*)BatchAABBs.GetUnsafePtr();
+            int aabbIndex = (int) (((uint) internalIndex) * kFloatsPerAABB);
+            float* aabbFloats = (float*) BatchAABBs.GetUnsafePtr();
             AtomicHelpers.AtomicMin(aabbFloats, aabbIndex + kMinX, aabb.Min.x);
             AtomicHelpers.AtomicMin(aabbFloats, aabbIndex + kMinY, aabb.Min.y);
             AtomicHelpers.AtomicMin(aabbFloats, aabbIndex + kMinZ, aabb.Min.z);
@@ -471,11 +462,12 @@ namespace Unity.Rendering
                 ChunkWorldRenderBounds chunkBounds = chunkBoundsArray[i];
 
                 bool isNewChunk = !chunkInfo.Valid;
-                bool localToWorldChange = chunkHeader.ArchetypeChunk.DidChange<LocalToWorld>(LocalToWorld, HybridChunkUpdater.LastSystemVersion);
+                bool localToWorldChange =
+                    chunkHeader.ArchetypeChunk.DidChange<LocalToWorld>(LocalToWorld,
+                        HybridChunkUpdater.LastSystemVersion);
 
                 // Don't mark new chunks for updates here, they will be handled later when they have valid batch indices.
-                if (!isNewChunk)
-                    HybridChunkUpdater.MarkBatchForUpdates(chunkInfo.InternalIndex, localToWorldChange);
+                if (!isNewChunk) HybridChunkUpdater.MarkBatchForUpdates(chunkInfo.InternalIndex, localToWorldChange);
 
                 HybridChunkUpdater.ProcessChunk(ref chunkInfo, chunkHeader.ArchetypeChunk, chunkBounds);
                 hybridChunkInfos[i] = chunkInfo;
@@ -523,10 +515,10 @@ namespace Unity.Rendering
         public const int kFlagInstanceCulling = 1 << 1;
 
         // size  // start - end offset
-        public short BatchOffset; //  2     2 - 4
-        public ushort MovementGraceFixed16; //  2     4 - 6
-        public byte Flags; //  1     6 - 7
-        public byte ForceLowLODPrevious; //  1     7 - 8
+        public short BatchOffset;                           //  2     2 - 4
+        public ushort MovementGraceFixed16;                 //  2     4 - 6
+        public byte Flags;                                  //  1     6 - 7
+        public byte ForceLowLODPrevious;                    //  1     7 - 8
         public ChunkInstanceLodEnabled InstanceLodEnableds; // 16     8 - 16
     }
 
@@ -737,7 +729,7 @@ namespace Unity.Rendering
 
             // Need to accept &t0 as input, because 'fixed' must be in the callsite.
             public unsafe ArchetypeChunkComponentTypeDynamic Type(ArchetypeChunkComponentTypeDynamic* fixedT0,
-                int typeIndex)
+                                                                  int typeIndex)
             {
                 return fixedT0[TypeIndexToArrayIndex[GetArrayIndex(typeIndex)]];
             }
@@ -753,7 +745,8 @@ namespace Unity.Rendering
             BurstCompatibleTypeArray typeArray = default;
 
             Debug.Assert(UsedTypeCount > 0, "No types have been registered");
-            Debug.Assert(UsedTypeCount <= BurstCompatibleTypeArray.kMaxTypes, "Maximum supported amount of types exceeded");
+            Debug.Assert(UsedTypeCount <= BurstCompatibleTypeArray.kMaxTypes,
+                "Maximum supported amount of types exceeded");
 
             typeArray.TypeIndexToArrayIndex = new NativeArray<int>(
                 MaxIndex + 1,
@@ -763,8 +756,7 @@ namespace Unity.Rendering
 
             // Use an index guaranteed to cause a crash on invalid indices
             uint GuaranteedCrashOffset = 0x80000000;
-            for (int i = 0; i < toArrayIndex.Length; ++i)
-                toArrayIndex[i] = (int)GuaranteedCrashOffset;
+            for (int i = 0; i < toArrayIndex.Length; ++i) toArrayIndex[i] = (int) GuaranteedCrashOffset;
 
             var typeIndices = UsedTypes.GetValueArray(Allocator.Temp);
             int numTypes = math.min(typeIndices.Length, BurstCompatibleTypeArray.kMaxTypes);
@@ -781,8 +773,7 @@ namespace Unity.Rendering
             // We need valid type objects in each field.
             {
                 var someType = Type(typeIndices[0]);
-                for (int i = numTypes; i < BurstCompatibleTypeArray.kMaxTypes; ++i)
-                    fixedT0[i] = someType;
+                for (int i = numTypes; i < BurstCompatibleTypeArray.kMaxTypes; ++i) fixedT0[i] = someType;
             }
 
             typeIndices.Dispose();
@@ -802,15 +793,15 @@ namespace Unity.Rendering
     /// <summary>
     /// Renders all Entities containing both RenderMesh & LocalToWorld components.
     /// </summary>
-#if ENABLE_HYBRID_RENDERER_V2
+    #if ENABLE_HYBRID_RENDERER_V2
     [ExecuteAlways]
     //@TODO: Necessary due to empty component group. When Component group and archetype chunks are unified this should be removed
     [AlwaysUpdateSystem]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     [UpdateAfter(typeof(UpdatePresentationSystemGroup))]
-#else
+    #else
     [DisableAutoCreation]
-#endif
+    #endif
     public unsafe class HybridRendererSystem : JobComponentSystem
     {
         private EntityQuery m_CullingJobDependencyGroup;
@@ -821,30 +812,27 @@ namespace Unity.Rendering
 
         private EntityQuery m_LodSelectGroup;
 
-#if UNITY_EDITOR
+        #if UNITY_EDITOR
         private EditorRenderData m_DefaultEditorRenderData = new EditorRenderData
-        {SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask};
+            {SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask};
 
         private uint m_PreviousDOTSReflectionVersionNumber = 0;
 
-#else
+        #else
         private EditorRenderData m_DefaultEditorRenderData = new EditorRenderData { SceneCullingMask = ~0UL };
-#endif
+        #endif
 
         const int kMaxBatchCount = 64 * 1024;
-        const int kMaxEntitiesPerBatch = 1023; // C++ code is restricted to a certain maximum size
-        const int kNumNewChunksPerThread = 1; // TODO: Tune this
-        const int kNumScatteredIndicesPerThread = 8; // TODO: Tune this
+        const int kMaxEntitiesPerBatch = 1023;            // C++ code is restricted to a certain maximum size
+        const int kNumNewChunksPerThread = 1;             // TODO: Tune this
+        const int kNumScatteredIndicesPerThread = 8;      // TODO: Tune this
         const int kNumGatheredIndicesPerThread = 128 * 8; // Two cache lines per thread
         const int kBuiltinCbufferIndex = 0;
 
         const int kMaxGPUPersistentInstanceDataSize = 1024 * 1024 * 64; // 64 MB
         const int kMaxChunkMetadata = 256 * 1024;
 
-        private enum BatchFlags
-        {
-            NeedMotionVectorPassFlag = 0x1
-        };
+        private enum BatchFlags { NeedMotionVectorPassFlag = 0x1 };
 
         private JobHandle m_CullingJobDependency;
         private JobHandle m_LODDependency;
@@ -883,11 +871,11 @@ namespace Unity.Rendering
         // NativeArray<FrozenRenderSceneTag> m_Tags;
         NativeArray<byte> m_ForceLowLOD;
 
-#if UNITY_EDITOR
+        #if UNITY_EDITOR
         float m_CamMoveDistance;
-#endif
+        #endif
 
-#if UNITY_EDITOR
+        #if UNITY_EDITOR
         private CullingStats* m_CullingStats = null;
 
         public CullingStats ComputeCullingStats()
@@ -897,7 +885,7 @@ namespace Unity.Rendering
             {
                 ref var s = ref m_CullingStats[i];
 
-                for (int f = 0; f < (int)CullingStats.kCount; ++f)
+                for (int f = 0; f < (int) CullingStats.kCount; ++f)
                 {
                     result.Stats[f] += s.Stats[f];
                 }
@@ -907,7 +895,7 @@ namespace Unity.Rendering
             return result;
         }
 
-#endif
+        #endif
 
         private bool m_ResetLod;
 
@@ -951,7 +939,7 @@ namespace Unity.Rendering
             public bool FlippedWinding;
 
             public bool Valid => RenderMesh.mesh != null && RenderMesh.material != null &&
-            RenderMesh.material.shader != null;
+                RenderMesh.material.shader != null;
 
             public bool Equals(BatchCreateInfo other)
             {
@@ -1049,9 +1037,9 @@ namespace Unity.Rendering
                 public int SizeBytes;
                 public int CbufferIndex;
                 public int OverrideComponentsIndex;
-#if USE_PROPERTY_ASSERTS
+                #if USE_PROPERTY_ASSERTS
                 public int NameID;
-#endif
+                #endif
                 public bool OverriddenInBatch;
                 public bool ZeroDefaultValue;
                 public HeapBlock GPUAllocation;
@@ -1169,7 +1157,8 @@ namespace Unity.Rendering
             m_ExistingBatchInternalIndices = new NativeHashMap<int, int>(128, Allocator.Persistent);
             m_ComponentTypeCache = new ComponentTypeCache(128);
 
-            m_BatchAABBs = new NativeArray<float>(kMaxBatchCount * (int)HybridChunkUpdater.kFloatsPerAABB, Allocator.Persistent);
+            m_BatchAABBs = new NativeArray<float>(kMaxBatchCount * (int) HybridChunkUpdater.kFloatsPerAABB,
+                Allocator.Persistent);
 
             m_DefaultValueBlits = new NativeList<DefaultValueBlitDescriptor>(Allocator.Persistent);
 
@@ -1177,14 +1166,14 @@ namespace Unity.Rendering
             m_AABBClearKicked = false;
 
             // Globally allocate a single zero matrix and reuse that for all default values that are pure zero
-            m_SharedZeroAllocation = m_GPUPersistentAllocator.Allocate((ulong)sizeof(float4x4));
+            m_SharedZeroAllocation = m_GPUPersistentAllocator.Allocate((ulong) sizeof(float4x4));
             Debug.Assert(!m_SharedZeroAllocation.Empty, "Allocation of constant-zero data failed");
             // Make sure the global zero is actually zero.
             m_DefaultValueBlits.Add(new DefaultValueBlitDescriptor
             {
                 DefaultValue = float4x4.zero,
-                DestinationOffset = (uint)m_SharedZeroAllocation.begin,
-                ValueSizeBytes = (uint)sizeof(float4x4),
+                DestinationOffset = (uint) m_SharedZeroAllocation.begin,
+                ValueSizeBytes = (uint) sizeof(float4x4),
                 Count = 1,
             });
 
@@ -1200,10 +1189,10 @@ namespace Unity.Rendering
                     },
                 });
 
-#if UNITY_EDITOR
-            m_CullingStats = (CullingStats*)UnsafeUtility.Malloc(JobsUtility.MaxJobThreadCount * sizeof(CullingStats),
+            #if UNITY_EDITOR
+            m_CullingStats = (CullingStats*) UnsafeUtility.Malloc(JobsUtility.MaxJobThreadCount * sizeof(CullingStats),
                 64, Allocator.Persistent);
-#endif
+            #endif
 
             // Collect all components with [MaterialProperty] attribute
             m_MaterialPropertyTypes = new NativeMultiHashMap<int, MaterialPropertyType>(256, Allocator.Persistent);
@@ -1216,12 +1205,12 @@ namespace Unity.Rendering
             RegisterMaterialPropertyType<WorldToLocal_Tag>("unity_WorldToObject", overrideTypeSize: 4 * 4 * 4);
 
             // Ifdef guard registering types that might not exist if V2 is disabled.
-#if ENABLE_HYBRID_RENDERER_V2
+            #if ENABLE_HYBRID_RENDERER_V2
             // Explicitly use a default of all ones for probe occlusion, so stuff doesn't render as black if this isn't set.
             RegisterMaterialPropertyType<BuiltinMaterialPropertyUnity_ProbesOcclusion>(
                 "unity_ProbesOcclusion",
                 defaultValue: new float4(1, 1, 1, 1));
-#endif
+            #endif
 
             foreach (var typeInfo in TypeManager.AllTypes)
             {
@@ -1231,7 +1220,7 @@ namespace Unity.Rendering
                     var attributes = type.GetCustomAttributes(typeof(MaterialPropertyAttribute), false);
                     if (attributes.Length > 0)
                     {
-                        var propertyAttr = (MaterialPropertyAttribute)attributes[0];
+                        var propertyAttr = (MaterialPropertyAttribute) attributes[0];
                         RegisterMaterialPropertyType(type, propertyAttr.Name, propertyAttr.OverrideSize);
                     }
                 }
@@ -1246,13 +1235,13 @@ namespace Unity.Rendering
             m_FirstFrameAfterInit = true;
         }
 
-        public void RegisterMaterialPropertyType(Type type, string propertyName, int overrideTypeSize = -1, MaterialPropertyDefaultValue defaultValue = default)
+        public void RegisterMaterialPropertyType(Type type, string propertyName, int overrideTypeSize = -1,
+                                                 MaterialPropertyDefaultValue defaultValue = default)
         {
             Debug.Assert(type != null, "type must be non-null");
             Debug.Assert(!string.IsNullOrEmpty(propertyName), "Property name must be valid");
 
-            if (overrideTypeSize == -1)
-                overrideTypeSize = UnsafeUtility.SizeOf(type);
+            if (overrideTypeSize == -1) overrideTypeSize = UnsafeUtility.SizeOf(type);
 
             // For now, we only support overriding one material property with one type.
             // Several types can override one property, but not the other way around.
@@ -1272,7 +1261,8 @@ namespace Unity.Rendering
             }
         }
 
-        public void RegisterMaterialPropertyType<T>(string propertyName, int overrideTypeSize = -1, MaterialPropertyDefaultValue defaultValue = default)
+        public void RegisterMaterialPropertyType<T>(string propertyName, int overrideTypeSize = -1,
+                                                    MaterialPropertyDefaultValue defaultValue = default)
             where T : IComponentData
         {
             RegisterMaterialPropertyType(typeof(T), propertyName, overrideTypeSize, defaultValue);
@@ -1301,17 +1291,16 @@ namespace Unity.Rendering
                         OverriddenDefault = defaultValue.Nonzero,
                     });
 
-                if (defaultValue.Nonzero)
-                    m_MaterialPropertyDefaultValues[typeIndex] = defaultValue.Value;
+                if (defaultValue.Nonzero) m_MaterialPropertyDefaultValues[typeIndex] = defaultValue.Value;
 
-#if USE_PROPERTY_ASSERTS
+                #if USE_PROPERTY_ASSERTS
                 m_MaterialPropertyNames[nameID] = propertyName;
                 m_MaterialPropertyTypeNames[typeIndex] = type.Name;
-#endif
+                #endif
 
-#if DEBUG_LOG_MATERIAL_PROPERTIES
+                #if DEBUG_LOG_MATERIAL_PROPERTIES
                 Debug.Log($"Type \"{type.Name}\" ({sizeBytes} bytes) overrides material property \"{propertyName}\" (nameID: {nameID}, typeIndex: {typeIndex})");
-#endif
+                #endif
 
                 // We cache all types that we know are capable of overriding properties
                 m_ComponentTypeCache.UseType(typeIndex);
@@ -1334,15 +1323,15 @@ namespace Unity.Rendering
                 m_FirstFrameAfterInit = false;
             }
 
-#if UNITY_EDITOR
+            #if UNITY_EDITOR
             {
-#if UNITY_2020_1_OR_NEWER
+                #if UNITY_2020_1_OR_NEWER
                 uint reflectionVersionNumber = HybridV2ShaderReflection.GetDOTSReflectionVersionNumber();
                 bool reflectionChanged = reflectionVersionNumber != m_PreviousDOTSReflectionVersionNumber;
-#else
+                #else
                 uint reflectionVersionNumber = 0;
                 bool reflectionChanged = false;
-#endif
+                #endif
 
                 if (HybridEditorTools.DebugSettings.RecreateAllBatches ||
                     reflectionChanged)
@@ -1358,15 +1347,15 @@ namespace Unity.Rendering
                     }
                     else
                     {
-#if DEBUG_LOG_REFLECTION_TRIGGERED_RECREATE
+                        #if DEBUG_LOG_REFLECTION_TRIGGERED_RECREATE
                         Debug.Log("New shader reflection info detected, recreating hybrid batches");
-#endif
+                        #endif
                     }
 
                     m_PreviousDOTSReflectionVersionNumber = reflectionVersionNumber;
                 }
             }
-#endif
+            #endif
 
             Profiler.BeginSample("AddMissingChunkComponents");
             {
@@ -1378,7 +1367,7 @@ namespace Unity.Rendering
             JobHandle done = default;
             Profiler.BeginSample("UpdateAllBatches");
             using (var hybridChunks =
-                       m_HybridRenderedQuery.CreateArchetypeChunkArray(Allocator.TempJob))
+                m_HybridRenderedQuery.CreateArchetypeChunkArray(Allocator.TempJob))
             {
                 done = UpdateAllBatches(inputDependencies);
             }
@@ -1392,10 +1381,10 @@ namespace Unity.Rendering
         {
             InitializeMaterialProperties();
 
-#if DEBUG_LOG_HYBRID_V2
+            #if DEBUG_LOG_HYBRID_V2
             Debug.Log(
                 $"Hybrid Renderer V2 active, MaterialProperty component type count {m_ComponentTypeCache.UsedTypeCount} / {ComponentTypeCache.BurstCompatibleTypeArray.kMaxTypes}");
-#endif
+            #endif
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
@@ -1442,13 +1431,13 @@ namespace Unity.Rendering
             if (m_InternalIdFreelist.IsCreated) m_InternalIdFreelist.Dispose();
             m_InternalIdFreelist = new NativeList<int>(kMaxBatchCount, Allocator.Persistent);
 
-            for (int i = m_InternalToExternalIds.Length - 1; i >= 0; --i)
-                m_InternalIdFreelist.Add(i);
+            for (int i = m_InternalToExternalIds.Length - 1; i >= 0; --i) m_InternalIdFreelist.Add(i);
         }
 
         internal int AllocateInternalId()
         {
-            Debug.Assert(m_InternalIdFreelist.Length > 0, $"Maximum Hybrid Renderer batch count ({kMaxBatchCount}) exceeded.");
+            Debug.Assert(m_InternalIdFreelist.Length > 0,
+                $"Maximum Hybrid Renderer batch count ({kMaxBatchCount}) exceeded.");
             int id = m_InternalIdFreelist[m_InternalIdFreelist.Length - 1];
             m_InternalIdFreelist.Resize(m_InternalIdFreelist.Length - 1, NativeArrayOptions.UninitializedMemory);
             Debug.Assert(!m_SortedInternalIds.Contains(id), "Freshly allocated batch id found in list of used ids");
@@ -1501,7 +1490,8 @@ namespace Unity.Rendering
 
         internal void RemoveBatchIndex(int internalId, int externalId)
         {
-            Debug.Assert(m_ExternalBatchCount > 0, $"Attempted to release an invalid BatchRendererGroup id {externalId}");
+            Debug.Assert(m_ExternalBatchCount > 0,
+                $"Attempted to release an invalid BatchRendererGroup id {externalId}");
             m_ExistingBatchInternalIndices.Remove(internalId);
             RemoveExternalIdSwapWithBack(externalId);
             ReleaseInternalId(internalId);
@@ -1515,11 +1505,11 @@ namespace Unity.Rendering
             m_GPUUploader.Dispose();
             m_GPUPersistentInstanceData.Dispose();
 
-#if UNITY_EDITOR
+            #if UNITY_EDITOR
             UnsafeUtility.Free(m_CullingStats, Allocator.Persistent);
 
             m_CullingStats = null;
-#endif
+            #endif
             m_BatchRendererGroup.Dispose();
             // m_Tags.Dispose();
             m_ForceLowLOD.Dispose();
@@ -1558,8 +1548,7 @@ namespace Unity.Rendering
         public JobHandle OnPerformCulling(BatchRendererGroup rendererGroup, BatchCullingContext cullingContext)
         {
             var batchCount = cullingContext.batchVisibility.Length;
-            if (batchCount == 0)
-                return new JobHandle();
+            if (batchCount == 0) return new JobHandle();
             ;
 
             var lodParams = LODGroupExtensions.CalculateLODParams(cullingContext.lodParameters);
@@ -1581,10 +1570,10 @@ namespace Unity.Rendering
                 float cameraMoveDistance = math.length(m_PrevCameraPos - lodParams.cameraPos);
                 var lodDistanceScaleChanged = lodParams.distanceScale != m_PrevLodDistanceScale;
 
-#if UNITY_EDITOR
+                #if UNITY_EDITOR
                 // Record this separately in the editor for stats display
                 m_CamMoveDistance = cameraMoveDistance;
-#endif
+                #endif
 
                 var selectLodEnabledJob = new SelectLodEnabled
                 {
@@ -1598,9 +1587,9 @@ namespace Unity.Rendering
                         Fixed16CamDistance.FromFloatCeil(cameraMoveDistance * lodParams.distanceScale),
                     DistanceScale = lodParams.distanceScale,
                     DistanceScaleChanged = lodDistanceScaleChanged,
-#if UNITY_EDITOR
+                    #if UNITY_EDITOR
                     Stats = m_CullingStats,
-#endif
+                    #endif
                 };
 
                 cullingDependency = m_LODDependency = selectLodEnabledJob.Schedule(m_LodSelectGroup, lodJobDependency);
@@ -1609,9 +1598,9 @@ namespace Unity.Rendering
                 m_PrevLodDistanceScale = lodParams.distanceScale;
                 m_PrevCameraPos = lodParams.cameraPos;
                 m_ResetLod = false;
-#if UNITY_EDITOR
+                #if UNITY_EDITOR
                 UnsafeUtility.MemClear(m_CullingStats, sizeof(CullingStats) * JobsUtility.MaxJobThreadCount);
-#endif
+                #endif
             }
             else
             {
@@ -1623,7 +1612,7 @@ namespace Unity.Rendering
             }
 
             var threadLocalIndexLists = new NativeArray<int>(
-                (int)(JobsUtility.MaxJobThreadCount * SimpleCullingJob.kMaxEntitiesPerChunk),
+                (int) (JobsUtility.MaxJobThreadCount * SimpleCullingJob.kMaxEntitiesPerChunk),
                 Allocator.TempJob,
                 NativeArrayOptions.UninitializedMemory);
 
@@ -1646,15 +1635,15 @@ namespace Unity.Rendering
                 IndexList = cullingContext.visibleIndices,
                 Batches = cullingContext.batchVisibility,
                 ThreadLocalIndexLists = threadLocalIndexLists,
-#if UNITY_EDITOR
+                #if UNITY_EDITOR
                 Stats = m_CullingStats,
-#endif
+                #endif
             };
 
             var simpleCullingJobHandle = simpleCullingJob.Schedule(m_CullingGroup, cullingDependency);
             threadLocalIndexLists.Dispose(simpleCullingJobHandle);
 
-#if DEBUG_LOG_VISIBLE_INSTANCES
+            #if DEBUG_LOG_VISIBLE_INSTANCES
             {
                 simpleCullingJobHandle.Complete();
                 int numTotal = 0;
@@ -1668,7 +1657,7 @@ namespace Unity.Rendering
 
                 Debug.Log($"Culling: {numVisible} / {numTotal} visible ({(double) numVisible * 100.0 / numTotal:F2}%)");
             }
-#endif
+            #endif
 
             DidScheduleCullingJob(simpleCullingJobHandle);
 
@@ -1755,9 +1744,9 @@ namespace Unity.Rendering
                 PrevLocalToWorldType = TypeManager.GetTypeIndex<BuiltinMaterialPropertyUnity_MatrixPreviousM>(),
                 PrevWorldToLocalType = TypeManager.GetTypeIndex<BuiltinMaterialPropertyUnity_MatrixPreviousMI_Tag>(),
 
-#if PROFILE_BURST_JOB_INTERNALS
+                #if PROFILE_BURST_JOB_INTERNALS
                 ProfileAddUpload = new ProfilerMarker("AddUpload"),
-#endif
+                #endif
             };
 
             var updateAllJob = new UpdateAllHybridChunksJob
@@ -1793,10 +1782,10 @@ namespace Unity.Rendering
                     HybridChunkUpdater = hybridChunkUpdater,
                 };
 
-#if DEBUG_LOG_INVALID_CHUNKS
+                #if DEBUG_LOG_INVALID_CHUNKS
                 if (numValidNewChunks != numNewChunks)
                     Debug.Log($"Tried to add {numNewChunks} new chunks, but only {numValidNewChunks} were valid, {numNewChunks - numValidNewChunks} were invalid");
-#endif
+                #endif
 
                 hybridCompleted = updateNewChunksJob.Schedule(numValidNewChunks, kNumNewChunksPerThread);
                 hybridChunkUpdater.NewChunks.Dispose(hybridCompleted);
@@ -1823,10 +1812,10 @@ namespace Unity.Rendering
             int numRemoved = GarbageCollectUnreferencedBatches(unreferencedInternalIndices);
             Profiler.EndSample();
 
-#if DEBUG_LOG_CHUNK_CHANGES
+            #if DEBUG_LOG_CHUNK_CHANGES
             if (numNewChunks > 0 || numRemoved > 0)
                 Debug.Log($"Chunks changed, new chunks: {numNewChunks}, removed batches: {numRemoved}, batch count: {m_ExistingBatchInternalIndices.Count()}, chunk count: {m_MetaEntitiesForHybridRenderableChunks.CalculateEntityCount()}");
-#endif
+            #endif
 
             // Kick the job that clears the batch AABBs for the next frame, so it
             // will be done by the time we update on the next frame.
@@ -1859,12 +1848,12 @@ namespace Unity.Rendering
                     qw &= mask;
                 }
 
-                firstInQw += (int)AtomicHelpers.kNumBitsInLong;
+                firstInQw += (int) AtomicHelpers.kNumBitsInLong;
             }
 
-#if DEBUG_LOG_TOP_LEVEL
+            #if DEBUG_LOG_TOP_LEVEL
             Debug.Log($"GarbageCollectUnreferencedBatches(removed: {numRemoved})");
-#endif
+            #endif
 
             return numRemoved;
         }
@@ -1884,9 +1873,8 @@ namespace Unity.Rendering
             #endif
         }
 
-        private void UpdateBatchProperties(
-            NativeArray<long> batchRequiresUpdates,
-            NativeArray<long> batchHadMovingEntities)
+        private void UpdateBatchProperties(NativeArray<long> batchRequiresUpdates,
+                                           NativeArray<long> batchHadMovingEntities)
         {
             BatchUpdateStatistics updateStatistics = default;
 
@@ -1901,29 +1889,29 @@ namespace Unity.Rendering
                     int internalIndex = firstInQw + setBit;
 
                     bool entitiesMoved = (batchHadMovingEntities[i] & mask) != 0;
-                    var batchMotionInfo = (BatchMotionInfo*)m_BatchMotionInfos.GetUnsafePtr() + internalIndex;
+                    var batchMotionInfo = (BatchMotionInfo*) m_BatchMotionInfos.GetUnsafePtr() + internalIndex;
                     int externalBatchIndex = m_InternalToExternalIds[internalIndex];
 
                     UpdateBatchMotionVectors(externalBatchIndex, batchMotionInfo, entitiesMoved, ref updateStatistics);
 
-                    if (entitiesMoved)
-                        UpdateBatchBounds(internalIndex, externalBatchIndex, ref updateStatistics);
+                    if (entitiesMoved) UpdateBatchBounds(internalIndex, externalBatchIndex, ref updateStatistics);
 
                     qw &= ~mask;
                 }
 
-                firstInQw += (int)AtomicHelpers.kNumBitsInLong;
+                firstInQw += (int) AtomicHelpers.kNumBitsInLong;
             }
 
-#if DEBUG_LOG_BATCH_UPDATES
+            #if DEBUG_LOG_BATCH_UPDATES
             if (updateStatistics.NonZero)
                 Debug.Log($"Updating batch properties. Enabled motion vectors: {updateStatistics.BatchesNeedingMotionVectors}, disabled motion vectors: {updateStatistics.BatchesWithoutMotionVectors}, updated bounds: {updateStatistics.BatchesWithChangedBounds}");
-#endif
+            #endif
         }
 
-        private void UpdateBatchBounds(int internalIndex, int externalBatchIndex, ref BatchUpdateStatistics updateStatistics)
+        private void UpdateBatchBounds(int internalIndex, int externalBatchIndex,
+                                       ref BatchUpdateStatistics updateStatistics)
         {
-            int aabbIndex = (int)(((uint)internalIndex) * HybridChunkUpdater.kFloatsPerAABB);
+            int aabbIndex = (int) (((uint) internalIndex) * HybridChunkUpdater.kFloatsPerAABB);
             float minX = m_BatchAABBs[aabbIndex + HybridChunkUpdater.kMinX];
             float minY = m_BatchAABBs[aabbIndex + HybridChunkUpdater.kMinY];
             float minZ = m_BatchAABBs[aabbIndex + HybridChunkUpdater.kMinZ];
@@ -1937,7 +1925,7 @@ namespace Unity.Rendering
                 Max = new float3(maxX, maxY, maxZ),
             };
 
-            var batchBounds = (AABB)aabb;
+            var batchBounds = (AABB) aabb;
             var batchCenter = batchBounds.Center;
             var batchSize = batchBounds.Size;
 
@@ -1947,43 +1935,43 @@ namespace Unity.Rendering
                     new Vector3(batchCenter.x, batchCenter.y, batchCenter.z),
                     new Vector3(batchSize.x, batchSize.y, batchSize.z)));
 
-#if DEBUG_LOG_BATCH_UPDATES
+            #if DEBUG_LOG_BATCH_UPDATES
             ++updateStatistics.BatchesWithChangedBounds;
-#endif
+            #endif
         }
 
         private void UpdateBatchMotionVectors(int externalBatchIndex,
-            BatchMotionInfo* batchMotionInfo,
-            bool entitiesMoved,
-            ref BatchUpdateStatistics updateStatistics)
+                                              BatchMotionInfo* batchMotionInfo,
+                                              bool entitiesMoved,
+                                              ref BatchUpdateStatistics updateStatistics)
         {
             if (batchMotionInfo->RequiresMotionVectorUpdates &&
                 entitiesMoved != batchMotionInfo->MotionVectorFlagSet)
             {
-#if UNITY_2020_1_OR_NEWER
+                #if UNITY_2020_1_OR_NEWER
                 if (entitiesMoved)
                 {
-#if DEBUG_LOG_BATCH_UPDATES
+                    #if DEBUG_LOG_BATCH_UPDATES
                     ++updateStatistics.BatchesNeedingMotionVectors;
-#endif
+                    #endif
                     m_BatchRendererGroup.SetBatchFlags(
                         externalBatchIndex,
-                        (int)BatchFlags.NeedMotionVectorPassFlag);
+                        (int) BatchFlags.NeedMotionVectorPassFlag);
 
                     batchMotionInfo->MotionVectorFlagSet = true;
                 }
                 else
                 {
-#if DEBUG_LOG_BATCH_UPDATES
+                    #if DEBUG_LOG_BATCH_UPDATES
                     ++updateStatistics.BatchesWithoutMotionVectors;
-#endif
+                    #endif
                     m_BatchRendererGroup.SetBatchFlags(
                         externalBatchIndex,
                         0);
 
                     batchMotionInfo->MotionVectorFlagSet = false;
                 }
-#endif
+                #endif
             }
         }
 
@@ -1995,9 +1983,9 @@ namespace Unity.Rendering
             m_BatchInfos[internalBatchIndex] = default;
             m_BatchMotionInfos[internalBatchIndex] = default;
 
-#if DEBUG_LOG_BATCHES
+            #if DEBUG_LOG_BATCHES
             Debug.Log($"RemoveBatch(internalBatchIndex: {internalBatchIndex}, externalBatchIndex: {externalBatchIndex})");
-#endif
+            #endif
 
             m_BatchRendererGroup.RemoveBatch(externalBatchIndex);
             RemoveBatchIndex(internalBatchIndex, externalBatchIndex);
@@ -2006,8 +1994,7 @@ namespace Unity.Rendering
             for (int i = 0; i < properties.Length; ++i)
             {
                 var gpuAllocation = (properties.Ptr + i)->GPUAllocation;
-                if (!gpuAllocation.Empty)
-                    m_GPUPersistentAllocator.Release(gpuAllocation);
+                if (!gpuAllocation.Empty) m_GPUPersistentAllocator.Release(gpuAllocation);
             }
 
             ref var metadataAllocations = ref batchInfo.ChunkMetadataAllocations;
@@ -2017,7 +2004,7 @@ namespace Unity.Rendering
                 if (!metadataAllocation.Empty)
                 {
                     for (ulong j = metadataAllocation.begin; j < metadataAllocation.end; ++j)
-                        m_ChunkProperties[(int)j] = default;
+                        m_ChunkProperties[(int) j] = default;
 
                     m_ChunkMetadataAllocator.Release(metadataAllocation);
                 }
@@ -2041,12 +2028,12 @@ namespace Unity.Rendering
                 RenderMeshType = GetArchetypeChunkSharedComponentType<RenderMesh>(),
                 EditorRenderDataType = GetArchetypeChunkSharedComponentType<EditorRenderData>(),
                 RenderMeshFlippedWindingTagType = GetArchetypeChunkComponentType<RenderMeshFlippedWindingTag>(),
-#if UNITY_EDITOR
+                #if UNITY_EDITOR
                 DefaultEditorRenderData = new EditorRenderData
-                {SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask},
-#else
+                    {SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask},
+                #else
                 DefaultEditorRenderData = new EditorRenderData { SceneCullingMask = ~0UL },
-#endif
+                #endif
             };
             var sortByBatchCompatibility = new SortByBatchCompatibility
             {
@@ -2077,8 +2064,7 @@ namespace Unity.Rendering
                     breakBatch = true;
                 }
 
-                if (numInstances + instancesInChunk > kMaxEntitiesPerBatch)
-                    breakBatch = true;
+                if (numInstances + instancesInChunk > kMaxEntitiesPerBatch) breakBatch = true;
 
                 if (breakBatch)
                 {
@@ -2109,15 +2095,14 @@ namespace Unity.Rendering
         }
 
         private BatchInfo CreateBatchInfo(ref BatchCreateInfo createInfo, NativeArray<ArchetypeChunk> chunks,
-            int numInstances)
+                                          int numInstances)
         {
             BatchInfo batchInfo = default;
 
             var material = createInfo.RenderMesh.material;
-            if (material == null || material.shader == null)
-                return batchInfo;
+            if (material == null || material.shader == null) return batchInfo;
 
-#if UNITY_2020_1_OR_NEWER
+            #if UNITY_2020_1_OR_NEWER
             var shaderProperties = HybridV2ShaderReflection.GetDOTSInstancingProperties(material.shader);
 
             ref var properties = ref batchInfo.Properties;
@@ -2158,8 +2143,7 @@ namespace Unity.Rendering
                     // entries for all of them.
                     if (materialPropertyType.SizeBytes == shaderProperty.SizeBytes)
                     {
-                        if (overridesStartIndex < 0)
-                            overridesStartIndex = overrideComponents.Length;
+                        if (overridesStartIndex < 0) overridesStartIndex = overrideComponents.Length;
 
                         overrideComponents.Add(new BatchInfo.BatchOverrideComponent
                         {
@@ -2179,10 +2163,10 @@ namespace Unity.Rendering
                     }
                     else
                     {
-#if USE_PROPERTY_ASSERTS
+                        #if USE_PROPERTY_ASSERTS
                         Debug.Log(
                             $"Shader expects property \"{m_MaterialPropertyNames[nameID]}\" to have size {shaderProperty.SizeBytes}, but overriding component \"{m_MaterialPropertyTypeNames[materialPropertyType.TypeIndex]}\" has size {materialPropertyType.SizeBytes} instead.");
-#endif
+                        #endif
                     }
 
                     foundMaterialPropertyType =
@@ -2206,9 +2190,9 @@ namespace Unity.Rendering
                     OverriddenInBatch = false,
                     ZeroDefaultValue = zeroDefault,
                     DefaultValue = defaultValue,
-#if USE_PROPERTY_ASSERTS
+                    #if USE_PROPERTY_ASSERTS
                     NameID = nameID,
-#endif
+                    #endif
                 });
             }
 
@@ -2240,12 +2224,13 @@ namespace Unity.Rendering
                 bool needsDedicatedAllocation = property->OverriddenInBatch || !property->ZeroDefaultValue;
                 if (needsDedicatedAllocation)
                 {
-                    uint sizeBytes = (uint)numInstances * (uint)property->SizeBytes;
+                    uint sizeBytes = (uint) numInstances * (uint) property->SizeBytes;
                     property->GPUAllocation = m_GPUPersistentAllocator.Allocate(sizeBytes);
-                    Debug.Assert(!property->GPUAllocation.Empty, $"Out of memory in the Hybrid Renderer GPU instance data buffer. Attempted to allocate {sizeBytes}, buffer size: {m_GPUPersistentAllocator.Size}, free size left: {m_GPUPersistentAllocator.FreeSpace}.");
+                    Debug.Assert(!property->GPUAllocation.Empty,
+                        $"Out of memory in the Hybrid Renderer GPU instance data buffer. Attempted to allocate {sizeBytes}, buffer size: {m_GPUPersistentAllocator.Size}, free size left: {m_GPUPersistentAllocator.FreeSpace}.");
                 }
             }
-#endif
+            #endif
 
             return batchInfo;
         }
@@ -2257,15 +2242,13 @@ namespace Unity.Rendering
             for (int i = 0; i < count; ++i)
             {
                 var id = shader.GetPropertyNameId(i);
-                if (id == nameID)
-                    return i;
+                if (id == nameID) return i;
             }
 
             return -1;
         }
 
-        private MaterialPropertyDefaultValue DefaultValueFromMaterial(
-            Material material, int nameID, int sizeBytes)
+        private MaterialPropertyDefaultValue DefaultValueFromMaterial(Material material, int nameID, int sizeBytes)
         {
             MaterialPropertyDefaultValue propertyDefaultValue = default;
 
@@ -2282,15 +2265,15 @@ namespace Unity.Rendering
                     if (type == ShaderPropertyType.Color)
                         if (QualitySettings.activeColorSpace == ColorSpace.Linear)
                             propertyDefaultValue =
-                                new MaterialPropertyDefaultValue((Vector4)material.GetColor(nameID).linear);
+                                new MaterialPropertyDefaultValue((Vector4) material.GetColor(nameID).linear);
                         else
                             propertyDefaultValue =
-                                new MaterialPropertyDefaultValue((Vector4)material.GetColor(nameID).gamma);
+                                new MaterialPropertyDefaultValue((Vector4) material.GetColor(nameID).gamma);
                     else
                         propertyDefaultValue = new MaterialPropertyDefaultValue(material.GetVector(nameID));
                     break;
                 case 64:
-                    propertyDefaultValue = new MaterialPropertyDefaultValue((float4x4)material.GetMatrix(nameID));
+                    propertyDefaultValue = new MaterialPropertyDefaultValue((float4x4) material.GetMatrix(nameID));
                     break;
             }
 
@@ -2298,7 +2281,7 @@ namespace Unity.Rendering
         }
 
         private NativeList<ChunkProperty> ChunkOverriddenProperties(ref BatchInfo batchInfo, ArchetypeChunk chunk,
-            int chunkStart, Allocator allocator)
+                                                                    int chunkStart, Allocator allocator)
         {
             ref var properties = ref batchInfo.Properties;
             ref var overrideComponents = ref batchInfo.OverrideComponents;
@@ -2315,20 +2298,18 @@ namespace Unity.Rendering
                 int propertyIndex = componentType->BatchPropertyIndex;
                 var property = properties.Ptr + propertyIndex;
 
-                if (!property->OverriddenInBatch)
-                    continue;
+                if (!property->OverriddenInBatch) continue;
 
-                if (propertyIndex != prevPropertyIndex)
-                    numOverridesForProperty = 0;
+                if (propertyIndex != prevPropertyIndex) numOverridesForProperty = 0;
 
                 prevPropertyIndex = propertyIndex;
 
                 Debug.Assert(!property->GPUAllocation.Empty,
-#if USE_PROPERTY_ASSERTS
+                    #if USE_PROPERTY_ASSERTS
                     $"No valid GPU instance data buffer allocation for property {m_MaterialPropertyNames[property->NameID]}");
-#else
+                #else
                     "No valid GPU instance data buffer allocation for property");
-#endif
+                #endif
 
                 int typeIndex = componentType->TypeIndex;
                 var type = m_ComponentTypeCache.Type(typeIndex);
@@ -2339,29 +2320,29 @@ namespace Unity.Rendering
                     // well defined and we ignore all but one of them and possibly issue an error.
                     if (numOverridesForProperty == 0)
                     {
-                        uint sizeBytes = (uint)property->SizeBytes;
-                        uint batchBeginOffset = (uint)property->GPUAllocation.begin;
-                        uint chunkBeginOffset = batchBeginOffset + (uint)chunkStart * sizeBytes;
+                        uint sizeBytes = (uint) property->SizeBytes;
+                        uint batchBeginOffset = (uint) property->GPUAllocation.begin;
+                        uint chunkBeginOffset = batchBeginOffset + (uint) chunkStart * sizeBytes;
 
                         overriddenProperties.Add(new ChunkProperty
                         {
                             ComponentTypeIndex = typeIndex,
                             ValueSizeBytes = property->SizeBytes,
-                            GPUDataBegin = (int)chunkBeginOffset,
+                            GPUDataBegin = (int) chunkBeginOffset,
                         });
 
                         overrideIsFromIndex = i;
 
-#if DEBUG_LOG_OVERRIDES
+                        #if DEBUG_LOG_OVERRIDES
                         Debug.Log($"Property {m_MaterialPropertyNames[property->NameID]} overridden by component {m_MaterialPropertyTypeNames[componentType->TypeIndex]}");
-#endif
+                        #endif
                     }
                     else
                     {
-#if USE_PROPERTY_ASSERTS
+                        #if USE_PROPERTY_ASSERTS
                         Debug.Log(
                             $"Chunk has multiple overriding components for property \"{m_MaterialPropertyNames[property->NameID]}\". Override from component \"{m_MaterialPropertyTypeNames[overrideComponents.Ptr[overrideIsFromIndex].TypeIndex]}\" used, value from component \"{m_MaterialPropertyTypeNames[componentType->TypeIndex]}\" ignored.");
-#endif
+                        #endif
                     }
 
                     ++numOverridesForProperty;
@@ -2372,12 +2353,11 @@ namespace Unity.Rendering
         }
 
         private bool AddNewBatch(ref BatchCreateInfo createInfo,
-            ref ArchetypeChunkComponentType<HybridChunkInfo> hybridChunkInfoType,
-            NativeArray<ArchetypeChunk> batchChunks,
-            int numInstances)
+                                 ref ArchetypeChunkComponentType<HybridChunkInfo> hybridChunkInfoType,
+                                 NativeArray<ArchetypeChunk> batchChunks,
+                                 int numInstances)
         {
-            if (!createInfo.Valid)
-                return false;
+            if (!createInfo.Valid) return false;
 
             ref var renderMesh = ref createInfo.RenderMesh;
 
@@ -2398,10 +2378,10 @@ namespace Unity.Rendering
                 createInfo.EditorRenderData.SceneCullingMask);
             int internalBatchIndex = AddBatchIndex(externalBatchIndex);
 
-#if UNITY_2020_1_OR_NEWER
+            #if UNITY_2020_1_OR_NEWER
             if (renderMesh.needMotionVectorPass)
-                m_BatchRendererGroup.SetBatchFlags(externalBatchIndex, (int)BatchFlags.NeedMotionVectorPassFlag);
-#endif
+                m_BatchRendererGroup.SetBatchFlags(externalBatchIndex, (int) BatchFlags.NeedMotionVectorPassFlag);
+            #endif
 
             var batchInfo = CreateBatchInfo(ref createInfo, batchChunks, numInstances);
             var batchMotionInfo = new BatchMotionInfo
@@ -2410,9 +2390,9 @@ namespace Unity.Rendering
                 MotionVectorFlagSet = renderMesh.needMotionVectorPass,
             };
 
-#if DEBUG_LOG_BATCHES
+            #if DEBUG_LOG_BATCHES
             Debug.Log($"AddBatch(internalBatchIndex: {internalBatchIndex}, externalBatchIndex: {externalBatchIndex}, properties: {batchInfo.Properties.Length}, chunks: {batchChunks.Length}, numInstances: {numInstances}, mesh: {renderMesh.mesh}, material: {renderMesh.material})");
-#endif
+            #endif
 
             SetBatchMetadata(externalBatchIndex, ref batchInfo, renderMesh.material);
             AddBlitsForSharedDefaults(ref batchInfo);
@@ -2435,7 +2415,7 @@ namespace Unity.Rendering
                 HeapBlock metadataAllocation = default;
                 if (overriddenProperties.Length > 0)
                 {
-                    metadataAllocation = m_ChunkMetadataAllocator.Allocate((ulong)overriddenProperties.Length);
+                    metadataAllocation = m_ChunkMetadataAllocator.Allocate((ulong) overriddenProperties.Length);
                     Debug.Assert(!metadataAllocation.Empty, "Failed to allocate space for chunk property metadata");
                     metadataAllocations.Add(metadataAllocation);
                 }
@@ -2443,8 +2423,8 @@ namespace Unity.Rendering
                 var chunkInfo = new HybridChunkInfo
                 {
                     InternalIndex = internalBatchIndex,
-                    ChunkTypesBegin = (int)metadataAllocation.begin,
-                    ChunkTypesEnd = (int)metadataAllocation.end,
+                    ChunkTypesBegin = (int) metadataAllocation.begin,
+                    ChunkTypesEnd = (int) metadataAllocation.end,
                     CullingData = ComputeChunkCullingData(ref batchCullingComponentTypes, chunk, chunkStart),
                     Valid = true,
                 };
@@ -2452,16 +2432,16 @@ namespace Unity.Rendering
                 if (overriddenProperties.Length > 0)
                 {
                     UnsafeUtility.MemCpy(
-                        (ChunkProperty*)m_ChunkProperties.GetUnsafePtr() + chunkInfo.ChunkTypesBegin,
+                        (ChunkProperty*) m_ChunkProperties.GetUnsafePtr() + chunkInfo.ChunkTypesBegin,
                         overriddenProperties.GetUnsafeReadOnlyPtr(),
                         overriddenProperties.Length * sizeof(ChunkProperty));
                 }
 
                 chunk.SetChunkComponentData(hybridChunkInfoType, chunkInfo);
 
-#if DEBUG_LOG_CHUNKS
+                #if DEBUG_LOG_CHUNKS
                 Debug.Log($"AddChunk(chunk: {chunk.Count}, chunkStart: {chunkStart}, overriddenProperties: {overriddenProperties.Length})");
-#endif
+                #endif
 
 
                 chunkStart += chunk.Capacity;
@@ -2478,7 +2458,7 @@ namespace Unity.Rendering
 
         private void SetBatchMetadata(int externalBatchIndex, ref BatchInfo batchInfo, Material material)
         {
-#if UNITY_2020_1_OR_NEWER
+            #if UNITY_2020_1_OR_NEWER
             var metadataCbuffers = HybridV2ShaderReflection.GetDOTSInstancingCbuffers(material.shader);
 
             var metadataCbufferStarts = new NativeArray<int>(
@@ -2494,7 +2474,7 @@ namespace Unity.Rendering
 
             for (int i = 0; i < metadataCbuffers.Length; ++i)
             {
-                int sizeInts = (int)((uint)metadataCbuffers[i].SizeBytes / sizeof(int));
+                int sizeInts = (int) ((uint) metadataCbuffers[i].SizeBytes / sizeof(int));
                 metadataCbufferStarts[i] = totalSizeInts;
                 metadataCbufferLengths[i] = sizeInts;
                 totalSizeInts += sizeInts;
@@ -2513,32 +2493,30 @@ namespace Unity.Rendering
                 int metadataIndex = metadataCbufferStarts[property->CbufferIndex] + offsetInInts;
 
                 HeapBlock allocation = property->GPUAllocation;
-                if (!property->OverriddenInBatch && property->ZeroDefaultValue)
-                    allocation = m_SharedZeroAllocation;
+                if (!property->OverriddenInBatch && property->ZeroDefaultValue) allocation = m_SharedZeroAllocation;
 
                 uint metadataForProperty = property->OverriddenInBatch
                     ? 0x80000000
                     : 0;
-                metadataForProperty |= (uint)allocation.begin & 0x7fffffff;
-                metadataCbufferStorage[metadataIndex] = (int)metadataForProperty;
+                metadataForProperty |= (uint) allocation.begin & 0x7fffffff;
+                metadataCbufferStorage[metadataIndex] = (int) metadataForProperty;
 
-#if DEBUG_LOG_PROPERTIES
+                #if DEBUG_LOG_PROPERTIES
                 Debug.Log($"Property(internalBatchIndex: {m_ExternalToInternalIds[externalBatchIndex]}, externalBatchIndex: {externalBatchIndex}, property: {i}, elementSize: {property->SizeBytes}, cbuffer: {property->CbufferIndex}, metadataOffset: {property->MetadataOffset}, metadata: {metadataForProperty:x8})");
-#endif
+                #endif
             }
 
-#if DEBUG_LOG_BATCHES
+            #if DEBUG_LOG_BATCHES
             Debug.Log($"SetBatchPropertyMetadata(internalBatchIndex: {m_ExternalToInternalIds[externalBatchIndex]}, externalBatchIndex: {externalBatchIndex}, numCbuffers: {metadataCbufferLengths.Length}, numMetadataInts: {metadataCbufferStorage.Length})");
-#endif
+            #endif
 
             m_BatchRendererGroup.SetBatchPropertyMetadata(externalBatchIndex, metadataCbufferLengths,
                 metadataCbufferStorage);
-#endif
+            #endif
         }
 
-        private HybridChunkCullingData ComputeChunkCullingData(
-            ref CullingComponentTypes cullingComponentTypes,
-            ArchetypeChunk chunk, int chunkStart)
+        private HybridChunkCullingData ComputeChunkCullingData(ref CullingComponentTypes cullingComponentTypes,
+                                                               ArchetypeChunk chunk, int chunkStart)
         {
             var hasLodData = chunk.Has(cullingComponentTypes.RootLodRequirements) &&
                 chunk.Has(cullingComponentTypes.InstanceLodRequirements);
@@ -2549,7 +2527,7 @@ namespace Unity.Rendering
                 Flags = (byte)
                     ((hasLodData ? HybridChunkCullingData.kFlagHasLodData : 0) |
                         (hasPerInstanceCulling ? HybridChunkCullingData.kFlagInstanceCulling : 0)),
-                BatchOffset = (short)chunkStart,
+                BatchOffset = (short) chunkStart,
                 InstanceLodEnableds = default
             };
         }
@@ -2563,20 +2541,18 @@ namespace Unity.Rendering
 
                 // If the property is overridden, the batch cannot use a single shared default
                 // value, as there is only a single pointer for the entire batch.
-                if (property->OverriddenInBatch)
-                    continue;
+                if (property->OverriddenInBatch) continue;
 
-#if DEBUG_LOG_OVERRIDES
+                #if DEBUG_LOG_OVERRIDES
                 Debug.Log($"Property {m_MaterialPropertyNames[property->NameID]} not overridden in batch, ZeroDefaultValue: {property->ZeroDefaultValue}");
-#endif
+                #endif
 
                 // If the default value can be shared, but is known to be zero, we will use the
                 // global offset zero, so no need to upload separately for each property.
-                if (property->ZeroDefaultValue)
-                    continue;
+                if (property->ZeroDefaultValue) continue;
 
-                uint sizeBytes = (uint)property->SizeBytes;
-                uint batchBeginOffset = (uint)property->GPUAllocation.begin;
+                uint sizeBytes = (uint) property->SizeBytes;
+                uint batchBeginOffset = (uint) property->GPUAllocation.begin;
 
                 m_DefaultValueBlits.Add(new DefaultValueBlitDescriptor
                 {
@@ -2599,8 +2575,7 @@ namespace Unity.Rendering
 
                 // If the property is not overridden in the batch at all, it is handled by
                 // AddBlitsForSharedDefaults().
-                if (!property->OverriddenInBatch)
-                    continue;
+                if (!property->OverriddenInBatch) continue;
 
                 // Loop through all components that could potentially override this property, which
                 // are guaranteed to be contiguous in the array.
@@ -2608,27 +2583,26 @@ namespace Unity.Rendering
                 bool isOverridden = false;
 
                 Debug.Assert(!property->GPUAllocation.Empty,
-#if USE_PROPERTY_ASSERTS
+                    #if USE_PROPERTY_ASSERTS
                     $"No valid GPU instance data buffer allocation for property {m_MaterialPropertyNames[property->NameID]}");
-#else
+                #else
                     "No valid GPU instance data buffer allocation for property");
-#endif
+                #endif
                 Debug.Assert(overrideIndex >= 0, "Expected a valid array index");
 
                 while (overrideIndex < overrideComponents.Length)
                 {
                     var componentType = overrideComponents.Ptr + overrideIndex;
-                    if (componentType->BatchPropertyIndex != i)
-                        break;
+                    if (componentType->BatchPropertyIndex != i) break;
 
                     int typeIndex = componentType->TypeIndex;
                     var type = m_ComponentTypeCache.Type(typeIndex);
 
                     if (chunk.Has(type))
                     {
-#if DEBUG_LOG_OVERRIDES
+                        #if DEBUG_LOG_OVERRIDES
                         Debug.Log($"Property {m_MaterialPropertyNames[property->NameID]} IS overridden in chunk, NOT uploading default");
-#endif
+                        #endif
 
                         isOverridden = true;
                         break;
@@ -2639,19 +2613,19 @@ namespace Unity.Rendering
 
                 if (!isOverridden)
                 {
-#if DEBUG_LOG_OVERRIDES
+                    #if DEBUG_LOG_OVERRIDES
                     Debug.Log($"Property {m_MaterialPropertyNames[property->NameID]} NOT overridden in chunk, uploading default");
-#endif
+                    #endif
 
-                    uint sizeBytes = (uint)property->SizeBytes;
-                    uint batchBeginOffset = (uint)property->GPUAllocation.begin;
-                    uint chunkBeginOffset = (uint)chunkStart * sizeBytes;
+                    uint sizeBytes = (uint) property->SizeBytes;
+                    uint batchBeginOffset = (uint) property->GPUAllocation.begin;
+                    uint chunkBeginOffset = (uint) chunkStart * sizeBytes;
 
                     m_DefaultValueBlits.Add(new DefaultValueBlitDescriptor
                     {
                         DefaultValue = property->DefaultValue,
                         DestinationOffset = batchBeginOffset + chunkBeginOffset,
-                        Count = (uint)chunk.Count,
+                        Count = (uint) chunk.Count,
                         ValueSizeBytes = sizeBytes,
                     });
                 }
@@ -2684,9 +2658,9 @@ namespace Unity.Rendering
                 DefaultValueBlitDescriptor blit = BlitList[index];
                 ThreadedGpuUploader.AddUpload(
                     &blit.DefaultValue,
-                    (int)blit.ValueSizeBytes,
-                    (int)blit.DestinationOffset,
-                    (int)blit.Count);
+                    (int) blit.ValueSizeBytes,
+                    (int) blit.DestinationOffset,
+                    (int) blit.Count);
             }
         }
 
@@ -2706,9 +2680,10 @@ namespace Unity.Rendering
         private struct AABBClearJob : IJobParallelFor
         {
             [NativeDisableParallelForRestriction] public NativeArray<float> BatchAABBs;
+
             public void Execute(int index)
             {
-                int aabbIndex = (int)(((uint)index) * HybridChunkUpdater.kFloatsPerAABB);
+                int aabbIndex = (int) (((uint) index) * HybridChunkUpdater.kFloatsPerAABB);
                 BatchAABBs[aabbIndex + HybridChunkUpdater.kMinX] = float.MaxValue;
                 BatchAABBs[aabbIndex + HybridChunkUpdater.kMinY] = float.MaxValue;
                 BatchAABBs[aabbIndex + HybridChunkUpdater.kMinZ] = float.MaxValue;
@@ -2722,8 +2697,7 @@ namespace Unity.Rendering
         // hasn't been kicked (i.e. it's the first frame), then do it now.
         private JobHandle EnsureAABBsCleared()
         {
-            if (!m_AABBClearKicked)
-                KickAABBClear();
+            if (!m_AABBClearKicked) KickAABBClear();
 
             return m_AABBsCleared;
         }
@@ -2753,17 +2727,30 @@ namespace Unity.Rendering
 
         public void StartUpdate()
         {
-            m_ThreadedGPUUploader =
-                m_GPUUploader.Begin(kMaxGPUPersistentInstanceDataSize, kMaxGPUPersistentInstanceDataSize / 24);
-            // Debug.Log($"GPU allocator: {(double)m_GPUPersistentAllocator.UsedSpace / (double)m_GPUPersistentAllocator.Size * 100.0}%");
+            if (stop)
+            {
+                m_ThreadedGPUUploader =
+                    m_GPUUploader.Begin(kMaxGPUPersistentInstanceDataSize, kMaxGPUPersistentInstanceDataSize / 24);
+                // Debug.Log($"GPU allocator: {(double)m_GPUPersistentAllocator.UsedSpace / (double)m_GPUPersistentAllocator.Size * 100.0}%");
+            }
         }
+
+        public void SetStop(bool s)
+        {
+            stop = s;
+        }
+
+        private bool stop = true;
 
         public void EndUpdate()
         {
-            m_GPUUploader.EndAndCommit(m_ThreadedGPUUploader);
-            // Bind compute buffer here globally
-            // TODO: Bind it once to the shader of the batch!
-            Shader.SetGlobalBuffer("unity_DOTSInstanceData", m_GPUPersistentInstanceData);
+            if (stop)
+            {
+                m_GPUUploader.EndAndCommit(m_ThreadedGPUUploader);
+                // Bind compute buffer here globally
+                // TODO: Bind it once to the shader of the batch!
+                Shader.SetGlobalBuffer("unity_DOTSInstanceData", m_GPUPersistentInstanceData);
+            }
         }
     }
 }
